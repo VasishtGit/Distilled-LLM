@@ -1,7 +1,8 @@
 from datasets import Dataset
 from transformers import AutoTokenizer
 
-texts = [
+# Example training sentences
+sentences = [
     "AI will change the future of humanity.",
     "Knowledge distillation makes small models smarter.",
     "Kalman filters smooth noisy signals.",
@@ -9,30 +10,27 @@ texts = [
     "Small models are faster and lighter to run.",
 ] 
 
-tok = AutoTokenizer.from_pretrained("gpt2")
+# Load GPT-2's tokenizer
+tokenizer = AutoTokenizer.from_pretrained("gpt2")
 
-#GPT-2 has no pad token, so we borrow EOS
-#EOS or Padding is used as GPT 2 was trained using continuous text and not fixed length texts.
-if tok.pad_token is None:
-    tok.pad_token = tok.eos_token
+# Some tokenizers like GPT 2 don’t have a [PAD] token by default
+if tokenizer.pad_token is None:
+    tokenizer.pad_token = tokenizer.eos_token  # reuse end-of-sequence as padding
 
-#Tokenize
-enc = tok(texts, truncation=True, padding="max_length", max_length=32)
+# Step 1: Turn text into numbers
+tokenized_batch = tokenizer(
+    sentences,
+    truncation=True,            # cut off if sentence is too long
+    padding="max_length",       # pad shorter ones to the same length
+    max_length=32               # everything becomes length 32
+)
 
-# Copy input_ids into labels (for next-token prediction)
-enc["labels"] = enc["input_ids"].copy()
+# Step 2: For language modeling, labels = inputs (predict the next word)
+tokenized_batch["labels"] = tokenized_batch["input_ids"].copy()
 
-# Build dataset
-train_ds = Dataset.from_dict(enc)
+# Step 3: Convert dictionary into a Dataset object
+training_dataset = Dataset.from_dict(tokenized_batch)
 
-#Print one example
-print("One example row:")
-print(train_ds[0])  
-
-#Decode back to text so it makes sense
-print("\nDecoded back to text:")
-print(tok.decode(train_ds[0]["input_ids"]))
-
-#Saving dataset to disk for future training
-train_ds.save_to_disk("./toy_dataset")
-print("\nToy dataset saved -> ./toy_dataset")
+# Step 4: Save dataset to disk
+training_dataset.save_to_disk("./toy_dataset")
+print("Toy dataset saved -> ./toy_dataset")
